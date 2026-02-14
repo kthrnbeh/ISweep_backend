@@ -206,6 +206,51 @@ def analyze_content():
     }), 200
 
 
+@app.route('/event', methods=['POST'])
+def analyze_event():
+    """
+    Structured decision endpoint using analyze_decision.
+    Request body: { "user_id": str|int, "text": str, "confidence": float (optional) }
+    Response: { action, duration_seconds, matched_category, reason }
+    """
+    data = request.get_json()
+    analyzer = get_analyzer()
+
+    def decision_response(reason: str, status: int = 200):
+        return jsonify({
+            "action": "none",
+            "duration_seconds": 0,
+            "matched_category": None,
+            "reason": reason
+        }), status
+
+    if not data or 'user_id' not in data or 'text' not in data:
+        return decision_response("Invalid request", 200)
+
+    raw_user_id = data['user_id']
+    text = data['text']
+    confidence = data.get('confidence')
+
+    db = get_db()
+    user = None
+    numeric_id = None
+
+    if isinstance(raw_user_id, int) or (isinstance(raw_user_id, str) and raw_user_id.isdigit()):
+        numeric_id = int(raw_user_id)
+        user = db.get_user_by_id(numeric_id)
+    if user is None and isinstance(raw_user_id, str):
+        user = db.get_user_by_username(raw_user_id)
+        if user:
+            numeric_id = user['id']
+
+    if not user:
+        return decision_response("Unknown user_id", 200)
+
+    preferences = db.get_user_preferences(numeric_id)
+    decision = analyzer.analyze_decision(text, preferences, confidence)
+    return jsonify(decision), 200
+
+
 @app.errorhandler(404)
 def not_found(error):
     """Handle 404 errors."""

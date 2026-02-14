@@ -24,6 +24,13 @@ class ContentAnalyzer:
         'medium': 2,   # Moderate sensitivity
         'high': 1      # Very strict, one match triggers action
     }
+    SENSITIVITY_ACTIONS = {
+        'low': ('mute', 5),          # least restrictive
+        'medium': ('fast_forward', 10),
+        'high': ('skip', 15)         # most restrictive
+    }
+    SEXUAL_KEYWORDS = ['sex', 'sexual', 'naked', 'nude', 'explicit', 'rape', 'intercourse', 'seduce', 'seduction']
+    VIOLENCE_KEYWORDS = ['kill', 'killed', 'murder', 'shot', 'shoot', 'stab', 'blood', 'violence', 'violent', 'attack', 'fight', 'gun', 'weapon', 'death', 'die', 'dying', 'dead', 'assault', 'beat', 'beating', 'punch', 'hit']
     
     def __init__(self):
         """Initialize the content analyzer."""
@@ -86,7 +93,7 @@ class ContentAnalyzer:
     
     def _check_sexual_content(self, text: str) -> int:
         """Check for sexual content and return severity score."""
-        severity = 0
+        severity = self._count_whole_words(text, self.SEXUAL_KEYWORDS)
         for pattern in self.SEXUAL_PATTERNS:
             matches = re.findall(pattern, text, re.IGNORECASE)
             severity += len(matches)
@@ -94,8 +101,66 @@ class ContentAnalyzer:
     
     def _check_violence(self, text: str) -> int:
         """Check for violent content and return severity score."""
-        severity = 0
+        severity = self._count_whole_words(text, self.VIOLENCE_KEYWORDS)
         for pattern in self.VIOLENCE_PATTERNS:
             matches = re.findall(pattern, text, re.IGNORECASE)
             severity += len(matches)
         return severity
+
+    def _count_whole_words(self, text: str, words: List[str]) -> int:
+        """Count whole-word occurrences for simple keyword lists."""
+        count = 0
+        for word in words:
+            count += len(re.findall(rf'\b{re.escape(word)}\b', text, re.IGNORECASE))
+        return count
+
+    def analyze_decision(self, text: str, preferences: Dict, confidence: float | None = None) -> Dict:
+        """
+        Return structured decision with priority: sexual > violence > language.
+        Sensitivity deterministically maps to action+duration.
+        """
+
+        def base_decision(reason: str) -> Dict:
+            return {
+                "action": "none",
+                "duration_seconds": 0,
+                "matched_category": None,
+                "reason": reason
+            }
+
+        if not text:
+            return base_decision("No match")
+
+        text_lower = text.lower()
+        severities = {
+            'language': self._check_language(text_lower) if preferences.get('language_filter', True) else 0,
+            'sexual': self._check_sexual_content(text_lower) if preferences.get('sexual_content_filter', True) else 0,
+            'violence': self._check_violence(text_lower) if preferences.get('violence_filter', True) else 0
+        }
+
+        def passed(category: str) -> bool:
+            sensitivity_key = f"{category}_sensitivity"
+            threshold = self.SENSITIVITY_THRESHOLDS.get(preferences.get(sensitivity_key, 'medium'), 2)
+            return severities[category] >= threshold
+
+        for category in ['sexual', 'violence', 'language']:
+            if not passed(category):
+                continue
+            sensitivity_key = f"{category}_sensitivity"
+            sensitivity = preferences.get(sensitivity_key, 'medium')
+            action, duration = self.SENSITIVITY_ACTIONS.get(sensitivity, self.SENSITIVITY_ACTIONS['medium'])
+            reason_parts = [
+                f"{category} content detected",
+                f"sensitivity={sensitivity}",
+                f"severity={severities[category]}"
+            ]
+            if confidence is not None:
+                reason_parts.append(f"confidence={confidence}")
+            return {
+                "action": action,
+                "duration_seconds": duration,
+                "matched_category": category,
+                "reason": "; ".join(reason_parts)
+            }
+
+        return base_decision("No match")

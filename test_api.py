@@ -182,3 +182,56 @@ class TestAPI:
         assert response.status_code == 200
         data = json.loads(response.data)
         assert data['action'] == 'none'
+
+    def test_event_schema_and_priority(self, client):
+        """Test /event returns expected schema and prioritizes sexual over others."""
+        create_response = client.post('/api/users', json={'username': 'eventuser'})
+        user_id = json.loads(create_response.data)['user_id']
+
+        response = client.post('/event', json={
+            'user_id': str(user_id),
+            'text': 'Explicit sexual scene with a violent fight and strong language'
+        })
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert set(data.keys()) == {'action', 'duration_seconds', 'matched_category', 'reason'}
+        assert data['action'] == 'skip'
+        assert data['matched_category'] == 'sexual'
+        assert isinstance(data['duration_seconds'], int) and data['duration_seconds'] > 0
+        assert isinstance(data['reason'], str) and data['reason']
+
+    def test_event_no_match(self, client):
+        """Test /event returns none when no categories match."""
+        create_response = client.post('/api/users', json={'username': 'eventnomatch'})
+        user_id = json.loads(create_response.data)['user_id']
+
+        response = client.post('/event', json={
+            'user_id': user_id,
+            'text': 'Lovely sunny afternoon with friends'
+        })
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert data['action'] == 'none'
+        assert data['duration_seconds'] == 0
+        assert data['matched_category'] is None
+        assert data['reason'] == 'No match'
+
+    def test_event_invalid_request(self, client):
+        """Test /event returns schema for invalid payload."""
+        response = client.post('/event', json={'text': 'missing user id'})
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert data['action'] == 'none'
+        assert data['duration_seconds'] == 0
+        assert data['matched_category'] is None
+        assert data['reason'] == 'Invalid request'
+
+    def test_event_unknown_user(self, client):
+        """Test /event returns schema when user is unknown."""
+        response = client.post('/event', json={'user_id': 'nope', 'text': 'anything'})
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert data['action'] == 'none'
+        assert data['duration_seconds'] == 0
+        assert data['matched_category'] is None
+        assert data['reason'] == 'Unknown user_id'

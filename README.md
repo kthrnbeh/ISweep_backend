@@ -175,6 +175,37 @@ Analyze caption or transcript text and receive playback control action.
 - `fast_forward`: Fast forward through scene (violence detected)
 - `none`: No action needed
 
+### Event Decision (Structured Action)
+
+Use the decision engine with structured output and category details.
+
+**Endpoint:** `POST /event`
+
+**Request Body:**
+```json
+{
+  "user_id": "1",
+  "text": "Full caption or transcript text",
+  "confidence": 0.92
+}
+```
+
+**Response:**
+```json
+{
+  "action": "mute|skip|fast_forward|none",
+  "duration_seconds": 10,
+  "matched_category": "language|sexual|violence|null",
+  "reason": "sexual content detected; sensitivity=medium; severity=1"
+}
+```
+
+Rules:
+- Priority order: sexual > violence > language
+- Most restrictive action wins: skip > fast_forward > mute > none
+- If nothing matches: `action` is `none`, `duration_seconds` is `0`, `matched_category` is `null`, `reason` is `"No match"`
+- Invalid payloads or unknown users also return the same schema with HTTP 200 and `action` as `none` and `reason` explaining the issue.
+
 ## Usage Example
 
 ```python
