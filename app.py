@@ -238,7 +238,7 @@ def analyze_event():
     if isinstance(raw_user_id, int) or (isinstance(raw_user_id, str) and raw_user_id.isdigit()):
         numeric_id = int(raw_user_id)
         user = db.get_user_by_id(numeric_id)
-    if user is None and isinstance(raw_user_id, str):
+    if user is None and isinstance(raw_user_id, str) and hasattr(db, 'get_user_by_username'):
         user = db.get_user_by_username(raw_user_id)
         if user:
             numeric_id = user['id']
