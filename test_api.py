@@ -190,7 +190,7 @@ class TestAPI:
 
         response = client.post('/event', json={
             'user_id': str(user_id),
-            'text': 'Explicit sexual scene with a violent fight and strong language'
+            'text': 'Explicit sexual content and sexual scene with a violent fight and strong language'
         })
         assert response.status_code == 200
         data = json.loads(response.data)
