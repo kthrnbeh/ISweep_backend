@@ -195,7 +195,7 @@ class TestAPI:
         assert response.status_code == 200
         data = json.loads(response.data)
         assert set(data.keys()) == {'action', 'duration_seconds', 'matched_category', 'reason'}
-        assert data['action'] == 'skip'
+        assert data['action'] == 'fast_forward'
         assert data['matched_category'] == 'sexual'
         assert isinstance(data['duration_seconds'], int) and data['duration_seconds'] > 0
         assert isinstance(data['reason'], str) and data['reason']
