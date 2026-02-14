@@ -6,9 +6,9 @@ ISweep Backend is a real-time decision engine that receives caption or transcrip
 
 - **Real-time Content Analysis**: Analyzes caption/transcript text in real-time
 - **Playback Control Actions**: Returns one of four actions:
-  - `mute`: Temporarily mute audio (for language/profanity)
-  - `skip`: Skip ahead (for sexual content scenes)
-  - `fast_forward`: Fast forward through scenes (for violence)
+  - `mute`: Temporarily mute audio
+  - `fast_forward`: Fast forward through a scene
+  - `skip`: Skip ahead
   - `none`: No action needed, content is acceptable
 - **Per-User Preferences**: Each user can configure their own filtering preferences
 - **Three Content Categories**: Language/profanity, sexual content, and violence
@@ -170,10 +170,14 @@ Analyze caption or transcript text and receive playback control action.
 ```
 
 **Possible Actions:**
-- `mute`: Mute audio temporarily (language/profanity detected)
-- `skip`: Skip ahead (sexual content detected)
-- `fast_forward`: Fast forward through scene (violence detected)
+- `mute`: Mute audio temporarily
+- `fast_forward`: Fast forward through a scene
+- `skip`: Skip ahead
 - `none`: No action needed
+
+**Note:** For structured decisions (/event), the matched category is chosen deterministically
+(sexual > violence > language). The returned action and duration are determined by that
+category’s sensitivity setting (low/medium/high).
 
 ### Event Decision (Structured Action)
 
@@ -202,6 +206,7 @@ Use the decision engine with structured output and category details.
 
 Rules:
 - Priority order: sexual > violence > language
+- Action and duration are determined by the matched category’s sensitivity (low/medium/high).
 - Most restrictive action wins: skip > fast_forward > mute > none
 - If nothing matches: `action` is `none`, `duration_seconds` is `0`, `matched_category` is `null`, `reason` is `"No match"`
 - Invalid payloads or unknown users also return the same schema with HTTP 200 and `action` as `none` and `reason` explaining the issue.
